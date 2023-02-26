@@ -1,16 +1,29 @@
-...
+import logging
+import os
+import time
+from datetime import datetime, timedelta
+from http import HTTPStatus
+
+import requests
+import telegram
+from dotenv import load_dotenv
+from requests import RequestException
+
 
 load_dotenv()
 
-
-PRACTICUM_TOKEN = ...
-TELEGRAM_TOKEN = ...
-TELEGRAM_CHAT_ID = ...
-
+PRACTICUM_TOKEN = os.getenv('TOKEN_HW_PR')
+TELEGRAM_TOKEN = os.getenv('TOKEN_HW')
+TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 RETRY_PERIOD = 600
+TIME_RANGE = {
+    'from_date': int(
+        (datetime.today() - timedelta(seconds=RETRY_PERIOD)).timestamp()
+    )
+}
+
 ENDPOINT = 'https://practicum.yandex.ru/api/user_api/homework_statuses/'
 HEADERS = {'Authorization': f'OAuth {PRACTICUM_TOKEN}'}
-
 
 HOMEWORK_VERDICTS = {
     'approved': 'Работа проверена: ревьюеру всё понравилось. Ура!',
@@ -18,48 +31,102 @@ HOMEWORK_VERDICTS = {
     'rejected': 'Работа проверена: у ревьюера есть замечания.'
 }
 
+logger = logging.getLogger()
+formatter = logging.Formatter(
+    "%(asctime)s, %(name)s, %(levelname)s, %(message)s"
+)
+handler = logging.FileHandler('homework_bot.log', mode='a')
+
+handler.setLevel(logging.INFO)
+handler.setFormatter(formatter)
+logger.addHandler(handler)
+logger.setLevel(logging.INFO)
+
 
 def check_tokens():
-    ...
+    """Check tokens"""
+    if not PRACTICUM_TOKEN:
+        logger.critical('No PRACTICUM_TOKEN')
+        raise ImportError('No token PRACTICUM_TOKEN')
+
+    if not TELEGRAM_TOKEN:
+        logger.critical('No TELEGRAM_TOKEN')
+        raise ImportError('No token TELEGRAM_TOKEN')
+
+    if not TELEGRAM_CHAT_ID:
+        logger.critical('No TELEGRAM_CHAT_ID')
+        raise ImportError('No token TELEGRAM_CHAT_ID')
 
 
 def send_message(bot, message):
-    ...
+    """Send message"""
+    try:
+        bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
+        logger.debug(f'Send message: {message}')
+    except telegram.TelegramError:
+        logger.error(f'Do not send message: {message}')
 
 
 def get_api_answer(timestamp):
-    ...
+    """Get response, heck status == 200 and return json"""
+    try:
+        response = requests.get(ENDPOINT, headers=HEADERS, params=timestamp)
+    except RequestException as err:
+        raise IOError(err)
+
+    if response.status_code != HTTPStatus.OK:
+        raise RequestException
+
+    return response.json()
 
 
-def check_response(response):
-    ...
+def check_response(homeworks):
+    """Check keys in response"""
+    try:
+        homeworks = homeworks['homeworks']
+    except KeyError:
+        raise KeyError
+
+    if type(homeworks) != list:
+        raise TypeError
+
+    if homeworks:
+        return homeworks[0]
 
 
 def parse_status(homework):
-    ...
+    """Get status homework and return message for user"""
+    if homework.get('status') not in HOMEWORK_VERDICTS:
+        raise NameError
 
-    return f'Изменился статус проверки работы "{homework_name}". {verdict}'
+    try:
+        status = homework['status']
+        homework_name = homework['homework_name']
+    except KeyError as err:
+        raise KeyError(err)
+
+    if status in HOMEWORK_VERDICTS.keys():
+        verdict = HOMEWORK_VERDICTS[status]
+        return f'Изменился статус проверки работы "{homework_name}". {verdict}'
 
 
 def main():
-    """Основная логика работы бота."""
-
-    ...
-
+    """Bot start"""
+    check_tokens()
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
-    timestamp = int(time.time())
-
-    ...
 
     while True:
         try:
-
-            ...
+            homeworks = get_api_answer(TIME_RANGE)
+            if homework := check_response(homeworks):
+                if message := parse_status(homework):
+                    send_message(bot, message)
 
         except Exception as error:
-            message = f'Сбой в работе программы: {error}'
-            ...
-        ...
+            send_message(bot, f'Сбой в работе программы: {error}')
+            raise Exception(error)
+
+        time.sleep(600)
 
 
 if __name__ == '__main__':
