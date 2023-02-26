@@ -117,9 +117,11 @@ def main():
 
     while True:
         try:
-            homeworks = get_api_answer(TIME_RANGE)
-            if homework := check_response(homeworks):
-                if message := parse_status(homework):
+            response = get_api_answer(TIME_RANGE)
+            homework = check_response(response)
+            if homework:
+                message = parse_status(homework)
+                if message:
                     send_message(bot, message)
 
         except Exception as error:
