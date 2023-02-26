@@ -44,8 +44,7 @@ logger.setLevel(logging.INFO)
 
 
 def check_tokens():
-    """Check tokens"""
-
+    """Check tokens."""
     if not PRACTICUM_TOKEN:
         logger.critical('No PRACTICUM_TOKEN')
         raise ImportError('No token PRACTICUM_TOKEN')
@@ -60,8 +59,7 @@ def check_tokens():
 
 
 def send_message(bot, message):
-    """Send message"""
-
+    """Send message."""
     try:
         bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
         logger.debug(f'Send message: {message}')
@@ -70,8 +68,7 @@ def send_message(bot, message):
 
 
 def get_api_answer(timestamp):
-    """Get response, heck status == 200 and return json"""
-
+    """Get response, heck status == 200 and return json."""
     try:
         response = requests.get(ENDPOINT, headers=HEADERS, params=timestamp)
     except RequestException as err:
@@ -84,8 +81,7 @@ def get_api_answer(timestamp):
 
 
 def check_response(homeworks):
-    """Check keys in response"""
-
+    """Check keys in response."""
     try:
         homeworks = homeworks['homeworks']
     except KeyError:
@@ -99,8 +95,7 @@ def check_response(homeworks):
 
 
 def parse_status(homework):
-    """Get status homework and return message for user"""
-
+    """Get status homework and return message for user."""
     if homework.get('status') not in HOMEWORK_VERDICTS:
         raise NameError
 
@@ -116,8 +111,7 @@ def parse_status(homework):
 
 
 def main():
-    """Bot start"""
-
+    """Bot start."""
     check_tokens()
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
 
