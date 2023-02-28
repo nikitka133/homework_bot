@@ -3,7 +3,6 @@ import os
 import time
 from datetime import datetime, timedelta
 from http import HTTPStatus
-from pprint import pprint
 
 import requests
 import telegram
@@ -62,7 +61,7 @@ def check_tokens():
 def send_message(bot, message):
     """Send message."""
     try:
-        logger.debug(f'Sending message')
+        logger.debug('Sending message')
         bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
         logger.debug(f'Send message: {message}')
     except telegram.TelegramError:
