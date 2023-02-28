@@ -71,29 +71,30 @@ def send_message(bot, message):
 def get_api_answer(timestamp):
     """Get response, heck status == 200 and return json."""
     try:
+        logger.debug('API request')
         response = requests.get(ENDPOINT, headers=HEADERS, params=timestamp)
     except RequestException as err:
         raise IOError(err)
 
     if response.status_code != HTTPStatus.OK:
-        raise RequestException
+        raise RequestException(f'API answer code: {response.status_code}')
 
     return response.json()
 
 
 def check_response(homeworks):
     """Check keys in response."""
-    if isinstance(homeworks, dict):
-        if 'homeworks' not in homeworks.keys():
-            raise KeyError('No homeworks in homeworks')
-        if 'current_date' not in homeworks.keys():
-            raise KeyError('No current_date in homeworks')
+    if not isinstance(homeworks, dict):
+        raise TypeError('homeworks not dict')
+    if 'homeworks' not in homeworks.keys():
+        raise KeyError('No homeworks in homeworks')
+    if 'current_date' not in homeworks.keys():
+        raise KeyError('No current_date in homeworks')
 
-        homeworks = homeworks['homeworks']
-        if isinstance(homeworks, list):
-            return homeworks
-
-    raise TypeError('Invalid type homeworks')
+    homeworks = homeworks['homeworks']
+    if not isinstance(homeworks, list):
+        raise TypeError('homeworks not list')
+    return homeworks
 
 
 def parse_status(homework):
