@@ -3,6 +3,7 @@ import os
 import time
 from datetime import datetime, timedelta
 from http import HTTPStatus
+from pprint import pprint
 
 import requests
 import telegram
@@ -61,6 +62,7 @@ def check_tokens():
 def send_message(bot, message):
     """Send message."""
     try:
+        logger.debug(f'Sending message')
         bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
         logger.debug(f'Send message: {message}')
     except telegram.TelegramError:
@@ -82,53 +84,59 @@ def get_api_answer(timestamp):
 
 def check_response(homeworks):
     """Check keys in response."""
-    try:
+    if isinstance(homeworks, dict):
+        if 'homeworks' not in homeworks.keys():
+            raise KeyError('No homeworks in homeworks')
+        if 'current_date' not in homeworks.keys():
+            raise KeyError('No current_date in homeworks')
+
         homeworks = homeworks['homeworks']
-    except KeyError:
-        raise KeyError
+        if isinstance(homeworks, list):
+            return homeworks
 
-    if type(homeworks) != list:
-        raise TypeError
-
-    if homeworks:
-        return homeworks[0]
+    raise TypeError('Invalid type homeworks')
 
 
 def parse_status(homework):
     """Get status homework and return message for user."""
-    if homework.get('status') not in HOMEWORK_VERDICTS:
-        raise NameError
+    homework_name = homework.get('homework_name')
+    homework_status = homework.get('status')
 
-    try:
-        status = homework['status']
-        homework_name = homework['homework_name']
-    except KeyError as err:
-        raise KeyError(err)
+    if 'homework_name' not in homework.keys():
+        raise KeyError('homework_name not in homework')
+    if 'status' not in homework.keys():
+        raise KeyError('homework_status not in homework')
+    if homework_status not in HOMEWORK_VERDICTS:
+        raise KeyError('homework_status not in HOMEWORK_VERDICTS')
 
-    if status in HOMEWORK_VERDICTS.keys():
-        verdict = HOMEWORK_VERDICTS[status]
-        return f'Изменился статус проверки работы "{homework_name}". {verdict}'
+    verdict = HOMEWORK_VERDICTS[homework_status]
+    return f'Изменился статус проверки работы "{homework_name}". {verdict}'
 
 
 def main():
     """Bot start."""
     check_tokens()
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
+    last_status = None
 
     while True:
         try:
             response = get_api_answer(TIME_RANGE)
-            homework = check_response(response)
-            if homework:
-                message = parse_status(homework)
-                if message:
+            homeworks = check_response(response)
+            if homeworks:
+                message = parse_status(homeworks[0])
+                if message != last_status:
                     send_message(bot, message)
+                    last_status = message
+            else:
+                logger.debug('No changes status homework')
 
         except Exception as error:
             send_message(bot, f'Сбой в работе программы: {error}')
             raise Exception(error)
 
-        time.sleep(600)
+        finally:
+            time.sleep(RETRY_PERIOD)
 
 
 if __name__ == '__main__':
